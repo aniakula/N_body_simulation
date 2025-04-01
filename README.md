@@ -1,1 +1,1 @@
-#Simulation for the N body problem with the pygame package
+# Simulation for the N body problem with the pygame package
