@@ -27,11 +27,11 @@ surf.fill("Black") #fill the surface with red color
 #use convert to make game faster (convert_alpha for images with transparency)
 
 # text params = text, antialias, color (anti-alias = smooth edges)
-text_surface = test_font.render("Hello World", True, "Green") #create an image surface with text
+#text_surface = test_font.render("Hello World", True, "Green") #create an image surface with text
 #}
 
 #Animation: simply make a variable that changes over time to represent a position variable {
-text_x_pos = 0
+#text_x_pos = 0
 #}
 
 # Rectangles for surface movement:{
@@ -40,31 +40,62 @@ text_x_pos = 0
 # player_rect = player.get_rect(topleft = (0, 0)) #get the rectangle of the image (draws rect around surface given)
 
 # #}
+#1.989e30 -> sun
+#5.972e24 -> earth
+#7.34767e22 -> moon
+bodies = []
+# Create the Sun at the center
+sun = Body(mass=1.989e30, x=SCREEN_W*3//4, y=SCREEN_H//2, vx=0, vy=0, radius=30, color=(255, 255, 0), pixel_dist=1e11)
+
+# Create Earth (with tangential velocity for orbit)
+earth_distance = 149.53  # pixels from sun
+earth_velocity = 10  # appropriate orbital velocity
+earth = Body(mass=5.972e24, 
+             x=SCREEN_W*3//4 + earth_distance, 
+             y=SCREEN_H//2, 
+             vx=0, 
+             vy=earth_velocity, 
+             radius=10, 
+             color=(0, 0, 255))
+
+# Create Mars (further out)
+moon_distance = 250.55  # pixels from earth
+mars_velocity = 5  # slightly slower than Earth
+mars = Body(mass=6.39e23, 
+            x=SCREEN_W*3//4 + mars_distance, 
+            y=SCREEN_H//2, 
+            vx=0, 
+            vy=mars_velocity, 
+            radius=8, 
+            color=(255, 0, 0))
+
+bodies = [sun, earth, mars]
 
 #pygame.draw.circle(surf, "Red", (SCREEN_W // 2, SCREEN_H // 2), 100) #draw a circle on the surface
-planet1 = Body(mass=1, x=SCREEN_W//4, y=SCREEN_H//2, vx= 5, vy= 15, radius=10, color=(255, 0, 0)) #create a body object
-planet2 = Body(mass=50e14, x=SCREEN_W // 2, y=SCREEN_H // 2, vx=0, vy=0, radius=40, color=(0, 255, 0))
+# planet1 = Body(mass=5.972e24, x=SCREEN_W //10, y=SCREEN_H//2, vx= 5, vy= 15, radius=10, color=(255, 0, 0)) #create a body object
+# planet2 = Body(mass=1.989e27, x=SCREEN_W * 7// 8, y=SCREEN_H //2, vx=0, vy=0, radius=10, color=(0, 255, 0))
+# planet3 = Body(mass=7.34767e20, x=SCREEN_W // 11, y=SCREEN_H // 3, vx=7, vy=20, radius=5, color=(0, 0, 255))
+# bodies.extend([planet1, planet2, planet3])
+
 # Game Loop:{
-# Set up the window
+# Set up the window 
 while True: # game loop
     for event in pygame.event.get(): #get all the events that have happened (case here)
         if event.type == pygame.QUIT: #if the user clicks the close button (event)
             pygame.quit() #close the window (destructs the pygame object)
             exit() #system.exit(1)
     screen.blit(surf, (0, 0)) #blit = block image transfer = draw the surface on the screen
-    planet2.apply_gravity(planet1)
-    planet1.apply_gravity(planet2) #apply a force to the planet (0, 0 = no force)
-    planet1.update(0.1) #update the position of the planet
-    planet2.update(0.1)
 
-    planet1.draw(screen) #draw the planet on the screen
-    planet2.draw(screen)
-    #screen.blit(image_surf, (0, 0)) #draw the image on the screen
-    #screen.blit(text_surface, (text_x_pos, 200)) #draw the text on the screen
-    # text_x_pos = (text_x_pos + 5) % 800  #increment the x position of the text
-    # screen.blit(player, player_rect) #draw the player on the screen using rect for position 
-    # player_rect.x += 5 #increment the x position of the player
-    # if player_rect.left > 800: player_rect.left = 0 #if the player goes off the screen, reset to 0
+    for i, body in enumerate(bodies):
+        for j, other in enumerate(bodies):
+            if i != j:  # Don't apply gravity to itself
+                body.apply_gravity(other)
+    
+    # Update positions
+    for body in bodies:
+        body.update(0.05)
+        body.draw(screen)
+
     pygame.display.update() #update the display (repaint)
     clock.tick(FPS) #60 frames per second
 #}

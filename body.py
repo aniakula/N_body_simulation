@@ -2,81 +2,111 @@ import pygame
 import numpy as np
 
 class Body:
-    G = 6.67430e-11
+    
 
-    def __init__(self, mass, x, y, vx, vy, radius=10, color=(255, 255, 255)):
-        self.mass = mass
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
-        self.radius = radius
+    def __init__(self, mass, x, y, vx, vy, radius=10, color=(255, 255, 255), name=None):
+        # Physical properties (SI units)
+        self.mass = mass                  # kg
+        self.real_x = x                   # meters
+        self.real_y = y                   # meters
+        self.real_vx = vx                 # m/s
+        self.real_vy = vy                 # m/s
+        
+        # Display properties (pixels)
+        self.radius = radius              # pixels
         self.color = color
-        self.frames = [self] * 10
+        self.name = name
+        
+        # Trail for visualization
+        self.frames = []
+        for _ in range(10):
+            self.frames.append((self.screen_x, self.screen_y, self.dim(self.color)))
+    
+    # Scale factor for converting between real distances and screen pixels
+    # Adjust this value based on your simulation needs
+    SCALE_FACTOR = 1e9  # 1 pixel = 1 billion meters (≈6.68 AU)
+    G = 6.67428e-11  # Gravitational constant
 
+    @property
+    def screen_x(self):
+        # Convert real position to screen coordinates
+        return self.real_x / self.SCALE_FACTOR
+    
+    @property
+    def screen_y(self):
+        # Convert real position to screen coordinates
+        return self.real_y / self.SCALE_FACTOR
+    
     def draw(self, screen):
+        # Draw trail
+        for x, y, color in self.frames:
+            pygame.draw.circle(screen, color, (int(x), int(y)), self.radius//2)
         
-        for frame in self.frames:
-            # Draw the previous positions of the body
-            pygame.draw.circle(screen, frame.color, (frame.x, frame.y), frame.radius//2)
-
-        pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius)  # Draw the body as a circle
+        # Draw body
+        pygame.draw.circle(screen, self.color, (int(self.screen_x), int(self.screen_y)), self.radius)
         
+        # Draw name if provided
+        if self.name:
+            font = pygame.font.Font(None, 24)
+            text = font.render(self.name, True, self.color)
+            screen.blit(text, (int(self.screen_x) + self.radius + 5, int(self.screen_y) - 10))
 
     def update(self, dt):
-        # Update position based on velocity and time step)
+        # Update position based on velocity
+        # dt should be in seconds (real time)
+        
+        # Store previous position for trail
         self.frames.pop()
-        self.frames.insert(0, Body(self.mass, self.x, self.y, self.vx, self.vy, self.radius, self.dim(self.color)))
-        self.x += self.vx * dt
-        self.y += self.vy * dt
+        self.frames.insert(0, (self.screen_x, self.screen_y, self.dim(self.color)))
+        
+        # Update real position
+        self.real_x += self.real_vx * dt
+        self.real_y += self.real_vy * dt
 
     @staticmethod
     def dim(color: tuple[int, int, int]):
         r, g, b = color
         return (r//2, g//2, b//2)
     
-    @staticmethod
-    def compute_dist(coord1, coord2):
-        x1, y1 = coord1
-        x2, y2 = coord2
-        return np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-    
-    def apply_force(self, fx, fy, dt=0.1):
-        # Update velocity based on force and mass (F = ma -> a = F/m)
+    def apply_force(self, fx, fy, dt):
+        # F = ma → a = F/m
         ax = fx / self.mass
         ay = fy / self.mass
         
-        # Apply acceleration for the given time step
-        self.vx += ax * dt
-        self.vy += ay * dt
+        # Update velocities
+        self.real_vx += ax * dt
+        self.real_vy += ay * dt
 
-    def apply_gravity(self, other):
-        # Vector from self to other
-        dx = other.x - self.x
-        dy = other.y - self.y
+    def apply_gravity(self, other, dt):
+        # Vector from self to other (in meters)
+        dx = other.real_x - self.real_x
+        dy = other.real_y - self.real_y
         
-        # Calculate distance (magnitude of the vector)
+        # Distance between bodies (in meters)
         r = np.sqrt(dx**2 + dy**2)
         
-        # Avoid division by zero or objects that are too close
-        if r < self.radius + other.radius:
+        # Avoid collision or division by zero
+        min_distance = (self.radius + other.radius) * self.SCALE_FACTOR
+        if r < min_distance:
             return
         
-        # Calculate gravitational force
+        # Calculate gravitational force: F = G * (m1 * m2) / r²
         force = self.G * (self.mass * other.mass) / (r**2)
         
-        # Calculate force components (maintaining proper direction)
+        # Force components
         fx = force * dx / r
         fy = force * dy / r
         
-        # Apply the force
-        self.apply_force(fx, fy)
+        # Apply force
+        self.apply_force(fx, fy, dt)
 
-
-planet1 = Body(mass=1, x=0, y=0, vx= 1, vy= 1, radius=10, color=(255, 0, 0)) #create a body object
-planet2 = Body(mass=50e11, x=500, y=400, vx=0, vy=0, radius=10, color=(0, 255, 0))
-for i in range(100):
-    planet1.update(1)
-    planet2.update(1)
-    planet1.apply_gravity(planet2)
-    planet2.apply_gravity(planet1)
+    def apply_all_gravity(self, bodies, dt):
+        for body in bodies:
+            if body is not self:  # Don't apply gravity to itself
+                self.apply_gravity(body, dt)
+    
+    @staticmethod
+    def apply_all_to_one(bodies, one, dt):
+        for body in bodies:
+            if body is not one:
+                body.apply_gravity(one, dt)
