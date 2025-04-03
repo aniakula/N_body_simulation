@@ -110,3 +110,11 @@ class Body:
         for body in bodies:
             if body is not one:
                 body.apply_gravity(one, dt)
+
+    # def out_of_bounds(self, bounds_x, bounds_y) -> bool:
+    #     if self.real_x < -10 or self.real_x > bounds_x + 10:
+    #         return True
+    #     elif self.real_y < -10 or self.real_y > bounds_y + 10:
+    #         return True
+    #     else:
+    #         return False

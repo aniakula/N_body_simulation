@@ -21,7 +21,7 @@ background.fill("Black")
 # Time controls
 simulation_speed = 86400  # 1 day per simulation step (in seconds)
 dt = simulation_speed / FPS  # Time step in seconds
-
+controls_info = font.render("Space: Pause, Up/Down: Change speed", True, (255, 255, 255))
 # Create bodies
 bodies = []
 
@@ -146,8 +146,7 @@ while running:
     # Draw simulation info
     time_info = font.render(f"Time scale: {simulation_speed/86400:.1f} days/sec", True, (255, 255, 255))
     screen.blit(time_info, (10, 10))
-    
-    controls_info = font.render("Space: Pause, Up/Down: Change speed", True, (255, 255, 255))
+
     screen.blit(controls_info, (10, 40))
 
     days_info = sub_font.render(f"Its been: {num_days:.1f} days", True, (255, 255, 255))
