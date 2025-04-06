@@ -33,7 +33,7 @@ class Body:
         return self.real_x / self.SCALE_FACTOR
     
     @property
-    def screen_y(self):
+    def screen_y(self, name=''):
         # Convert real position to screen coordinates
         return self.real_y / self.SCALE_FACTOR
     
@@ -46,8 +46,11 @@ class Body:
         pygame.draw.circle(screen, self.color, (int(self.screen_x), int(self.screen_y)), self.radius)
         
         # Draw name if provided
+        font = pygame.font.Font(None, 24)
         if self.name:
-            font = pygame.font.Font(None, 24)
+            text = font.render(self.name, True, self.color)
+            screen.blit(text, (int(self.screen_x) + self.radius + 5, int(self.screen_y) - 10))
+        else:
             text = font.render(self.name, True, self.color)
             screen.blit(text, (int(self.screen_x) + self.radius + 5, int(self.screen_y) - 10))
 
@@ -62,6 +65,75 @@ class Body:
         # Update real position
         self.real_x += self.real_vx * dt
         self.real_y += self.real_vy * dt
+
+    def update_rk4(self, dt, bodies):
+        # Store previous position for trail
+        self.frames.pop()
+        self.frames.insert(0, (self.screen_x, self.screen_y, self.dim(self.color)))
+        
+        # Store current state
+        x0, y0 = self.real_x, self.real_y
+        vx0, vy0 = self.real_vx, self.real_vy
+        
+        # Calculate k1 (equivalent to Euler method)
+        k1_x, k1_y = vx0, vy0
+        k1_vx, k1_vy = self.calculate_acceleration(bodies, x0, y0)
+        
+        # Calculate k2 (midpoint using k1)
+        k2_x, k2_y = vx0 + 0.5*dt*k1_vx, vy0 + 0.5*dt*k1_vy
+        k2_vx, k2_vy = self.calculate_acceleration(
+            bodies, 
+            x0 + 0.5*dt*k1_x, 
+            y0 + 0.5*dt*k1_y
+        )
+        
+        # Calculate k3 (midpoint using k2)
+        k3_x, k3_y = vx0 + 0.5*dt*k2_vx, vy0 + 0.5*dt*k2_vy
+        k3_vx, k3_vy = self.calculate_acceleration(
+            bodies, 
+            x0 + 0.5*dt*k2_x, 
+            y0 + 0.5*dt*k2_y
+        )
+        
+        # Calculate k4 (endpoint using k3)
+        k4_x, k4_y = vx0 + dt*k3_vx, vy0 + dt*k3_vy
+        k4_vx, k4_vy = self.calculate_acceleration(
+            bodies, 
+            x0 + dt*k3_x, 
+            y0 + dt*k3_y
+        )
+        
+        # Update position and velocity using weighted sum
+        self.real_x = x0 + dt/6 * (k1_x + 2*k2_x + 2*k3_x + k4_x)
+        self.real_y = y0 + dt/6 * (k1_y + 2*k2_y + 2*k3_y + k4_y)
+        self.real_vx = vx0 + dt/6 * (k1_vx + 2*k2_vx + 2*k3_vx + k4_vx)
+        self.real_vy = vy0 + dt/6 * (k1_vy + 2*k2_vy + 2*k3_vy + k4_vy)
+    
+    def calculate_acceleration(self, bodies, pos_x, pos_y):
+        ax, ay = 0, 0
+        
+        for body in bodies:
+            if body is not self:  # Don't apply gravity to itself
+                # Vector from self to other (in meters)
+                dx = body.real_x - pos_x
+                dy = body.real_y - pos_y
+                
+                # Distance between bodies (in meters)
+                r = np.sqrt(dx**2 + dy**2)
+                
+                # Avoid collision or division by zero
+                min_distance = (self.radius + body.radius) * self.SCALE_FACTOR
+                if r < min_distance:
+                    continue
+                
+                # Calculate gravitational acceleration: a = G * m / r²
+                acceleration = self.G * body.mass / (r**2)
+                
+                # Acceleration components
+                ax += acceleration * dx / r
+                ay += acceleration * dy / r
+        
+        return ax, ay
 
     @staticmethod
     def dim(color: tuple[int, int, int]):
@@ -110,7 +182,19 @@ class Body:
         for body in bodies:
             if body is not one:
                 body.apply_gravity(one, dt)
-
+    @staticmethod
+    def calc_cm(bodies: list["Body"]):
+        yc = 0
+        xc = 0
+        M_sum = 0
+        for body in bodies:
+            xc += body.screen_x * body.mass
+            yc += body.screen_y * body.mass
+            M_sum += body.mass
+        if M_sum == 0:
+            return None
+    
+        return (xc//M_sum, yc//M_sum)
     # def out_of_bounds(self, bounds_x, bounds_y) -> bool:
     #     if self.real_x < -10 or self.real_x > bounds_x + 10:
     #         return True
